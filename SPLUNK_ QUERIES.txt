@@ -1,0 +1,46 @@
+=== SPLUNK FIREWALL DETECTION QUERIES ===
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv"
+
+-- Q1: All Events --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv"
+| table _time, src_ip, dst_ip, dst_port, action, country, severity
+
+-- Q2: Blocked vs Allowed --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv"
+| stats count by action
+
+-- Q3: Top Attacking IPs --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" action=blocked
+| stats count by src_ip, country | sort -count | head 10
+
+-- Q4: Brute Force Detection --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" action=blocked
+| stats count as block_count by src_ip, country | where block_count >= 5 | sort -block_count
+
+-- Q5: Critical Events --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" severity=critical
+| table _time, src_ip, dst_ip, dst_port, rule_name, country
+
+-- Q6: Port Scan Detection --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" action=blocked
+| stats dc(dst_port) as unique_ports, count as attempts by src_ip
+| where unique_ports >= 3 | sort -unique_ports
+
+-- Q7: Attacks by Country --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" action=blocked
+| stats count by country | sort -count
+
+-- Q8: Attack Timeline --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" action=blocked
+| timechart span=5m count
+
+-- Q9: Suspicious Outbound --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" direction=outbound action=blocked
+| table _time, src_ip, dst_ip, dst_port, rule_name, severity
+
+-- Q10: Full Attacker Profile --
+source="firewall_logs.csv" host="DESKTOP-DDM3ULB" index="main" sourcetype="csv" src_ip="185.220.101.34"
+| stats count as total_attempts, values(dst_port) as ports_targeted,
+        values(rule_name) as rules_triggered,
+        min(_time) as first_seen, max(_time) as last_seen
+  by src_ip, country
